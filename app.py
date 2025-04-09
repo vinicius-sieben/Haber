@@ -44,7 +44,17 @@ if uploaded_file is not None:
     prediction = interpreter.get_tensor(output_details[0]['index'])
 
     # Classes (ajuste com as reais do seu modelo)
-    class_names = ['Praga 1', 'Praga 2', 'Praga 3', 'Sem Praga']
+    class_names = [ ## REVISAR ##
+    'Mosaic Virus',
+    'Southern Blight',
+    'Sudden Death Syndrome',
+    'Yellow Mosaic',
+    'Bacterial Blight',
+    'Brown Spot',
+    'Crestamento',
+    'Ferrugem',
+    'Powdery Mildew',
+    'Septoria']
     predicted_class = class_names[np.argmax(prediction)]
     confidence = np.max(prediction)
 
