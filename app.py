@@ -2,6 +2,7 @@ import streamlit as st
 from PIL import Image
 import tensorflow as tf
 import numpy as np
+from utils.doencas import get_doencas, exibir_doenca
 
 # Cache para evitar recarregamento do modelo toda hora
 @st.cache_resource
@@ -43,20 +44,28 @@ if uploaded_file is not None:
     # Obtém o resultado
     prediction = interpreter.get_tensor(output_details[0]['index'])
 
-    # Classes (ajuste com as reais do seu modelo)
-    class_names = [ ## REVISAR ##
-    'Mosaic Virus',
-    'Southern Blight',
-    'Sudden Death Syndrome',
-    'Yellow Mosaic',
-    'Bacterial Blight',
-    'Brown Spot',
-    'Crestamento',
-    'Ferrugem',
-    'Powdery Mildew',
-    'Septoria']
+    class_names = [
+        'Mossaic Virus',
+        'Southern Blight',
+        'Sudden Death Syndrome',
+        'Yellow Mosaic',
+        'Bacterial Blight',
+        'Brown Spot',
+        'Crestamento',
+        'Ferrugem',
+        'Powdery Mildew',
+        'Septoria'
+    ]
     predicted_class = class_names[np.argmax(prediction)]
     confidence = np.max(prediction)
 
     st.markdown(f"### 🧠 Predição: **{predicted_class}**")
     st.write(f"Confiabilidade: {confidence * 100:.2f}%")
+
+    # Exibir informações adicionais
+    doencas = get_doencas()
+    if predicted_class in doencas:
+        st.markdown("## 📖 Detalhes sobre a doença detectada:")
+        exibir_doenca(predicted_class, doencas[predicted_class])
+    else:
+        st.info("Nenhuma informação detalhada disponível para essa doença.")
