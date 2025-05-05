@@ -3,6 +3,12 @@ from PIL import Image
 import tensorflow as tf
 import numpy as np
 
+# Configuração da página com ícone
+st.set_page_config(
+    page_title="Haber",
+    page_icon="images/haber.png"  # Aqui você pode colocar o caminho para o ícone
+)
+
 # Cache para evitar recarregamento do modelo toda hora
 @st.cache_resource
 def load_tflite_model():
@@ -24,7 +30,32 @@ def preprocess_image(image):
     image_array = np.expand_dims(image_array, axis=0).astype(np.float32)
     return image_array
 
+image = Image.open('images/haber_logo.png')  # Verifique o caminho correto da imagem
+st.sidebar.image(image, width=200)
+
+# Criação do menu com o 'option_menu'
+from streamlit_option_menu import option_menu
+import importlib
+
+#Options Menu
+with st.sidebar:
+    selected = option_menu(
+        '',
+        ["Home", 'Doenças', 'Modelo'],
+        icons=['house', 'search', 'info-circle'],
+        default_index=0,
+        menu_icon="cast",
+        styles={
+            "container": {"background-color": "#2D2D2D"},  # Cor do fundo do menu
+            "icon": {"color": "white", "font-size": "20px"},  # Cor dos ícones
+            "nav-link": {"color": "white", "font-weight": "bold"},  # Cor do texto
+            "nav-link-selected": {"background-color": "green", "color": "white"}  # Cor do item selecionado
+        }
+    )
+
+
 # Interface Streamlit
+
 st.title('🪲 Identificação de Pragas em Folhas de Soja')
 
 uploaded_file = st.file_uploader("📷 Envie uma imagem de folha de soja", type=["jpg", "jpeg", "png"])
