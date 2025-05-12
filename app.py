@@ -13,17 +13,17 @@ st.set_page_config(
 
 # Cache para evitar recarregamento do modelo toda hora
 @st.cache_resource
-def load_tflite_model():
-    interpreter = tf.lite.Interpreter(model_path="modelo_soja.tflite")
-    interpreter.allocate_tensors()
-    return interpreter
+#def load_tflite_model():
+#    interpreter = tf.lite.Interpreter(model_path="modelo_soja.tflite")
+#    interpreter.allocate_tensors()
+#    return interpreter
 
 # Carregar modelo
-interpreter = load_tflite_model()
+#interpreter = load_tflite_model()
 
 # Detalhes do modelo
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
+#input_details = interpreter.get_input_details()
+#output_details = interpreter.get_output_details()
 
 # Função de pré-processamento
 def preprocess_image(image):
@@ -114,11 +114,11 @@ elif selected == "Home":
         image_array = preprocess_image(image)
 
         # Alimenta o modelo
-        interpreter.set_tensor(input_details[0]['index'], image_array)
-        interpreter.invoke()
+        #interpreter.set_tensor(input_details[0]['index'], image_array)
+        #interpreter.invoke()
 
         # Obtém o resultado
-        prediction = interpreter.get_tensor(output_details[0]['index'])
+        #prediction = interpreter.get_tensor(output_details[0]['index'])
 
         class_names = [
             'Mossaic Virus',
@@ -132,8 +132,8 @@ elif selected == "Home":
             'Powdery Mildew',
             'Septoria'
         ]
-        predicted_class = class_names[np.argmax(prediction)]
-        confidence = np.max(prediction)
+        #predicted_class = class_names[np.argmax(prediction)]
+        #confidence = np.max(prediction)
 
         st.markdown(f"### 🧠 Predição: **{predicted_class}**")
         st.write(f"Confiabilidade: {confidence * 100:.2f}%")
