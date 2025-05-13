@@ -33,31 +33,34 @@ def preprocess_image(image):
     return image_array
 
 # Função para extrair os metadados EXIF e buscar a localização
-def get_location_from_exif(image):
+def get_location_from_exif(exif_data):
     try:
-        # Extrai os metadados EXIF
-        exif_data = image._getexif()
-        if exif_data is not None:
-            # Localiza o índice para a GPSInfo
+        if exif_data:
             gps_info = None
             for tag, value in exif_data.items():
                 if ExifTags.TAGS.get(tag) == 'GPSInfo':
                     gps_info = value
                     break
-            
+
             if gps_info is not None:
                 # Extraímos a latitude e longitude
-                lat_deg = gps_info[2][0] / gps_info[2][1]
-                lon_deg = gps_info[4][0] / gps_info[4][1]
-                
-                # Usamos o geopy para converter as coordenadas em um endereço
-                geolocator = Nominatim(user_agent="geoapiExercises")
-                location = geolocator.reverse((lat_deg, lon_deg), language='en')
-                return location.address
-        return None
+                lat_deg = gps_info[2][0]
+                lat_min = gps_info[2][1]
+                lat_sec = gps_info[2][2]
+                lon_deg = gps_info[4][0]
+                lon_min = gps_info[4][1]
+                lon_sec = gps_info[4][2]
+
+                # Convertendo as coordenadas para o formato decimal
+                lat = convert_to_decimal(lat_deg, lat_min, lat_sec)
+                lon = convert_to_decimal(lon_deg, lon_min, lon_sec)
+
+                # Retorna as coordenadas GPS
+                return lat, lon
+        return None, None
     except Exception as e:
-        st.error(f"Erro ao obter a localização EXIF: {e}")
-        return None
+        st.error(f"Erro ao extrair localização: {e}")
+        return None, None
 
 # Interface Streamlit
 st.sidebar.image("images/haber_logo.png", width=200)
