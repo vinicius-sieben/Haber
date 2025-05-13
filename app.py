@@ -32,6 +32,25 @@ def preprocess_image(image):
     image_array = np.expand_dims(image_array, axis=0).astype(np.float32)
     return image_array
 
+# Função para exibir todos os metadados EXIF da imagem
+def display_exif_data(image):
+    try:
+        # Extrai os metadados EXIF
+        exif_data = image._getexif()
+        if exif_data is not None:
+            # Exibir todos os metadados EXIF
+            st.write("Metadados EXIF da Imagem:")
+            for tag, value in exif_data.items():
+                tag_name = ExifTags.TAGS.get(tag, tag)  # Obter nome legível para o tag
+                st.write(f"{tag_name}: {value}")
+            return exif_data
+        else:
+            st.write("Nenhum metadado EXIF encontrado.")
+            return None
+    except Exception as e:
+        st.error(f"Erro ao obter os metadados EXIF: {e}")
+        return None
+
 # Função para extrair os metadados EXIF e buscar a localização
 def get_location_from_exif(exif_data):
     try:
@@ -61,6 +80,14 @@ def get_location_from_exif(exif_data):
     except Exception as e:
         st.error(f"Erro ao extrair localização: {e}")
         return None, None
+
+# Função para converter coordenadas GPS de DMS para formato decimal
+def convert_to_decimal(degrees, minutes, seconds):
+    try:
+        return degrees + (minutes / 60.0) + (seconds / 3600.0)
+    except Exception as e:
+        st.error(f"Erro ao converter coordenadas GPS: {e}")
+        return None
 
 # Interface Streamlit
 st.sidebar.image("images/haber_logo.png", width=200)
@@ -106,12 +133,15 @@ elif selected == "Home":
         image = Image.open(uploaded_file)
         st.image(image, caption="Imagem carregada", use_column_width=True)
 
+        # Exibir os metadados EXIF
+        exif_data = display_exif_data(image)
+
         # Tentar obter a localização
-        location = get_location_from_exif(image)
-        if location:
-            st.markdown(f"### 🌍 Localização da Imagem: {location}")
+        lat, lon = get_location_from_exif(exif_data)
+        if lat and lon:
+            st.markdown(f"### 🌍 Localização GPS: Latitude {lat}, Longitude {lon}")
         else:
-            st.markdown("### 🌍 Não foi possível obter a localização.")
+            st.markdown("### 🌍 Não foi possível obter a localização GPS.")
 
         # Pré-processa a imagem
         image_array = preprocess_image(image)
