@@ -145,21 +145,3 @@ elif selected == "Home":
             exibir_doenca(predicted_class, doencas[predicted_class])
         else:
             st.info("Nenhuma informação detalhada disponível para essa doença.")
-
-
-
-from streamlit_geolocation import streamlit_geolocation
-
-# Título da aplicação
-st.title("Captura de Localização do Usuário")
-
-# Botão para capturar a localização
-if st.button("Registrar Local"):
-    location = streamlit_geolocation()
-
-    if location:
-        st.write(f"Latitude: {location['latitude']}")
-        st.write(f"Longitude: {location['longitude']}")
-        st.write(f"Precisão: {location['accuracy']} metros")
-    else:
-        st.warning("Não foi possível obter a localização. Verifique as permissões do navegador.")
