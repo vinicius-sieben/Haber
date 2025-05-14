@@ -134,7 +134,7 @@ elif selected == "Home":
         st.image(image, caption="Imagem carregada", use_column_width=True)
 
         # Exibir os metadados EXIF
-        exif_data = display_exif_data(image)
+        #exif_data = display_exif_data(image)
 
         # Tentar obter a localização
         lat, lon = get_location_from_exif(exif_data)
