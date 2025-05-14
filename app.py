@@ -39,7 +39,7 @@ def display_exif_data(image):
         exif_data = image._getexif()
         if exif_data is not None:
             # Exibir todos os metadados EXIF
-            st.write("Metadados EXIF da Imagem:")
+            #st.write("Metadados EXIF da Imagem:")
             for tag, value in exif_data.items():
                 tag_name = ExifTags.TAGS.get(tag, tag)  # Obter nome legível para o tag
                 st.write(f"{tag_name}: {value}")
@@ -134,7 +134,7 @@ elif selected == "Home":
         st.image(image, caption="Imagem carregada", use_column_width=True)
 
         # Exibir os metadados EXIF
-        #exif_data = display_exif_data(image)
+        exif_data = display_exif_data(image)
 
         # Tentar obter a localização
         lat, lon = get_location_from_exif(exif_data)
