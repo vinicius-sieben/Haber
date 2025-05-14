@@ -1,47 +1,54 @@
 import streamlit as st
 from PIL import Image, ExifTags
-import tensorflow as tf
 import numpy as np
-from geopy.geocoders import Nominatim
 from utils.doencas import get_doencas, exibir_doenca
+import importlib
+from streamlit_option_menu import option_menu
 
-# Configuração da página com ícone
 st.set_page_config(
     page_title="Haber",
-    page_icon="images/haber.png"  # Aqui você pode colocar o caminho para o ícone
+    page_icon="images/haber.png"
 )
 
-# Cache para evitar recarregamento do modelo toda hora
-@st.cache_resource
-#def load_tflite_model():
-#    interpreter = tf.lite.Interpreter(model_path="modelo_soja.tflite")
-#    interpreter.allocate_tensors()
-#    return interpreter
+# Usuários e senhas fixos em dicionário simples
+USERS = {
+    "joao": "123456",
+    "maria": "senha123"
+}
 
-# Carregar modelo
-#interpreter = load_tflite_model()
+def login():
+    st.image("images/haber_logo.png")
+    st.title("Login")
+    username = st.text_input("Usuário")
+    password = st.text_input("Senha", type="password")
+    login_btn = st.button("Entrar")
+    st.write("Usuario: joao ")
+    st.write("Senha: 123456")
 
-# Detalhes do modelo
-#input_details = interpreter.get_input_details()
-#output_details = interpreter.get_output_details()
+    if login_btn:
+        if username in USERS and USERS[username] == password:
+            st.session_state["logged_in"] = True
+            st.session_state["username"] = username
+        else:
+            st.error("Usuário ou senha incorretos")
 
-# Função de pré-processamento
+def logout():
+    if st.sidebar.button("Logout"):
+        st.session_state["logged_in"] = False
+        st.experimental_rerun()
+
 def preprocess_image(image):
-    image = image.resize((224, 224))  # Ajuste conforme o seu modelo
-    image_array = np.array(image) / 255.0  # Normaliza
+    image = image.resize((224, 224))
+    image_array = np.array(image) / 255.0
     image_array = np.expand_dims(image_array, axis=0).astype(np.float32)
     return image_array
 
-# Função para exibir todos os metadados EXIF da imagem
 def display_exif_data(image):
     try:
-        # Extrai os metadados EXIF
         exif_data = image._getexif()
         if exif_data is not None:
-            # Exibir todos os metadados EXIF
-            #st.write("Metadados EXIF da Imagem:")
             for tag, value in exif_data.items():
-                tag_name = ExifTags.TAGS.get(tag, tag)  # Obter nome legível para o tag
+                tag_name = ExifTags.TAGS.get(tag, tag)
                 st.write(f"{tag_name}: {value}")
             return exif_data
         else:
@@ -51,7 +58,6 @@ def display_exif_data(image):
         st.error(f"Erro ao obter os metadados EXIF: {e}")
         return None
 
-# Função para extrair os metadados EXIF e buscar a localização
 def get_location_from_exif(exif_data):
     try:
         if exif_data:
@@ -62,7 +68,6 @@ def get_location_from_exif(exif_data):
                     break
 
             if gps_info is not None:
-                # Extraímos a latitude e longitude
                 lat_deg = gps_info[2][0]
                 lat_min = gps_info[2][1]
                 lat_sec = gps_info[2][2]
@@ -70,18 +75,15 @@ def get_location_from_exif(exif_data):
                 lon_min = gps_info[4][1]
                 lon_sec = gps_info[4][2]
 
-                # Convertendo as coordenadas para o formato decimal
                 lat = convert_to_decimal(lat_deg, lat_min, lat_sec)
                 lon = convert_to_decimal(lon_deg, lon_min, lon_sec)
 
-                # Retorna as coordenadas GPS
                 return lat, lon
         return None, None
     except Exception as e:
         st.error(f"Erro ao extrair localização: {e}")
         return None, None
 
-# Função para converter coordenadas GPS de DMS para formato decimal
 def convert_to_decimal(degrees, minutes, seconds):
     try:
         return degrees + (minutes / 60.0) + (seconds / 3600.0)
@@ -89,92 +91,83 @@ def convert_to_decimal(degrees, minutes, seconds):
         st.error(f"Erro ao converter coordenadas GPS: {e}")
         return None
 
-# Interface Streamlit
-st.sidebar.image("images/haber_logo.png", width=200)
+def main_app():
+    st.sidebar.image("images/haber_logo.png", width=200)
 
-# Criação do menu com o 'option_menu'
-from streamlit_option_menu import option_menu
-import importlib
+    logout()
 
-#Options Menu
-with st.sidebar:
-    selected = option_menu(
-        '',
-        ["Home", 'Doenças', 'Modelo','Histórico'],
-        icons=['house', 'search', 'info-circle','collection'],
-        default_index=0,
-        menu_icon="cast",
-        styles={
-            "container": {"background-color": "#2D2D2D"},  # Cor do fundo do menu
-            "icon": {"color": "white", "font-size": "20px"},  # Cor dos ícones
-            "nav-link": {"color": "white", "font-weight": "bold"},  # Cor do texto
-            "nav-link-selected": {"background-color": "green", "color": "white"}  # Cor do item selecionado
-        }
-    )
-    st.sidebar.empty()
-    st.button("Log-out")
+    with st.sidebar:
+        selected = option_menu(
+            '',
+            ["Home", 'Doenças', 'Modelo', 'Histórico'],
+            icons=['house', 'search', 'info-circle', 'collection'],
+            default_index=0,
+            menu_icon="cast",
+            styles={
+                "container": {"background-color": "#2D2D2D"},
+                "icon": {"color": "white", "font-size": "20px"},
+                "nav-link": {"color": "white", "font-weight": "bold"},
+                "nav-link-selected": {"background-color": "green", "color": "white"}
+            }
+        )
 
-# Carregar conteúdo com base na seleção
-if selected == "Doenças":
-    doenças_module = importlib.import_module('paginas.doencas')
-    doenças_module.display_content()
-elif selected == "Modelo":
-    modelo_module = importlib.import_module('paginas.modelo')
-    modelo_module.display_content()
-elif selected == "Histórico":
-    modelo_module = importlib.import_module('paginas.historico')
-    modelo_module.display_content()
-elif selected == "Home":
-    st.title('🪲 Identificação de Pragas em Folhas de Soja')
+    if selected == "Doenças":
+        doenças_module = importlib.import_module('paginas.doencas')
+        doenças_module.display_content()
+    elif selected == "Modelo":
+        modelo_module = importlib.import_module('paginas.modelo')
+        modelo_module.display_content()
+    elif selected == "Histórico":
+        modelo_module = importlib.import_module('paginas.historico')
+        modelo_module.display_content()
+    elif selected == "Home":
+        st.title('🪲 Identificação de Pragas em Folhas de Soja')
 
-    uploaded_file = st.file_uploader("📷 Envie uma imagem de folha de soja", type=["jpg", "jpeg", "png"])
+        uploaded_file = st.file_uploader("📷 Envie uma imagem de folha de soja", type=["jpg", "jpeg", "png"])
 
-    if uploaded_file is not None:
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Imagem carregada", use_column_width=True)
+        if uploaded_file is not None:
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Imagem carregada", use_column_width=True)
 
-        # Exibir os metadados EXIF
-        exif_data = display_exif_data(image)
+            exif_data = display_exif_data(image)
+            lat, lon = get_location_from_exif(exif_data)
+            if lat and lon:
+                st.markdown(f"### 🌍 Localização GPS: Latitude {lat}, Longitude {lon}")
+            else:
+                st.markdown("### 🌍 Não foi possível obter a localização GPS.")
 
-        # Tentar obter a localização
-        lat, lon = get_location_from_exif(exif_data)
-        if lat and lon:
-            st.markdown(f"### 🌍 Localização GPS: Latitude {lat}, Longitude {lon}")
-        else:
-            st.markdown("### 🌍 Não foi possível obter a localização GPS.")
+            image_array = preprocess_image(image)
 
-        # Pré-processa a imagem
-        image_array = preprocess_image(image)
+            class_names = [
+                'Mossaic Virus',
+                'Southern Blight',
+                'Sudden Death Syndrome',
+                'Yellow Mosaic',
+                'Bacterial Blight',
+                'Brown Spot',
+                'Crestamento',
+                'Ferrugem',
+                'Powdery Mildew',
+                'Septoria'
+            ]
 
-        # Alimenta o modelo
-        #interpreter.set_tensor(input_details[0]['index'], image_array)
-        #interpreter.invoke()
+            predicted_class = class_names[0]  # Placeholder fixo
+            confidence = 0.95
 
-        # Obtém o resultado
-        #prediction = interpreter.get_tensor(output_details[0]['index'])
+            st.markdown(f"### 🧠 Predição: **{predicted_class}**")
+            st.write(f"Confiabilidade: {confidence * 100:.2f}%")
 
-        class_names = [
-            'Mossaic Virus',
-            'Southern Blight',
-            'Sudden Death Syndrome',
-            'Yellow Mosaic',
-            'Bacterial Blight',
-            'Brown Spot',
-            'Crestamento',
-            'Ferrugem',
-            'Powdery Mildew',
-            'Septoria'
-        ]
-        #predicted_class = class_names[np.argmax(prediction)]
-        #confidence = np.max(prediction)
+            doencas = get_doencas()
+            if predicted_class in doencas:
+                st.markdown("## 📖 Detalhes sobre a doença detectada:")
+                exibir_doenca(predicted_class, doencas[predicted_class])
+            else:
+                st.info("Nenhuma informação detalhada disponível para essa doença.")
 
-        st.markdown(f"### 🧠 Predição: **{predicted_class}**")
-        st.write(f"Confiabilidade: {confidence * 100:.2f}%")
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
 
-        # Exibir informações adicionais
-        doencas = get_doencas()
-        if predicted_class in doencas:
-            st.markdown("## 📖 Detalhes sobre a doença detectada:")
-            exibir_doenca(predicted_class, doencas[predicted_class])
-        else:
-            st.info("Nenhuma informação detalhada disponível para essa doença.")
+if st.session_state["logged_in"]:
+    main_app()
+else:
+    login()
