@@ -11,44 +11,99 @@ from streamlit_folium import folium_static
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
 import requests
+from utils.auth_config import setup_authenticator
+from utils.location import display_location
+from utils.image_processing import preprocess_image
 
 st.set_page_config(
     page_title="Haber",
     page_icon="images/haber.png"
 )
 
-# Usuários e senhas fixos em dicionário simples
-USERS = {
-    "joao": "123456",
-    "maria": "senha123"
-}
+# Inicializa o authenticator
+authenticator = setup_authenticator()
 
-def login():
-    st.image("images/haber_logo.png")
-    st.title("Login")
-    username = st.text_input("Usuário")
-    password = st.text_input("Senha", type="password")
-    login_btn = st.button("Entrar")
-    st.write("Usuario: joao ")
-    st.write("Senha: 123456")
+# Centraliza a imagem do logo antes do login
+col1, col2, col3 = st.columns([1,2,1])
+with col2:
+    st.image("images/haber_logo.png", width=300)
+    st.markdown("<h1 style='text-align: center;'>Bem-vindo ao Haber</h1>", unsafe_allow_html=True)
 
-    if login_btn:
-        if username in USERS and USERS[username] == password:
-            st.session_state["logged_in"] = True
-            st.session_state["username"] = username
-        else:
-            st.error("Usuário ou senha incorretos")
+# Tenta fazer login
+name, authentication_status, username = authenticator.login('Login', 'main')
 
-def logout():
-    if st.sidebar.button("Logout"):
-        st.session_state["logged_in"] = False
-        st.experimental_rerun()
+if authentication_status == False:
+    st.error('Usuário ou senha incorretos')
+elif authentication_status == None:
+    st.info('Por favor, insira seu usuário e senha')
+elif authentication_status:
+    # Usuário está logado
+    st.sidebar.image("images/haber_logo.png", width=200)
+    
+    with st.sidebar:
+        selected = option_menu(
+            '',
+            ["Home", 'Doenças', 'Modelo', 'Histórico'],
+            icons=['house', 'search', 'info-circle', 'collection'],
+            default_index=0,
+            menu_icon="cast",
+            styles={
+                "container": {"background-color": "#2D2D2D"},
+                "icon": {"color": "white", "font-size": "20px"},
+                "nav-link": {"color": "white", "font-weight": "bold"},
+                "nav-link-selected": {"background-color": "green", "color": "white"}
+            }
+        )
+        # Botão de logout na sidebar
+        authenticator.logout('Logout', 'sidebar')
 
-def preprocess_image(image):
-    image = image.resize((224, 224))
-    image_array = np.array(image) / 255.0
-    image_array = np.expand_dims(image_array, axis=0).astype(np.float32)
-    return image_array
+    if selected == "Doenças":
+        doenças_module = importlib.import_module('paginas.doencas')
+        doenças_module.display_content()
+    elif selected == "Modelo":
+        modelo_module = importlib.import_module('paginas.modelo')
+        modelo_module.display_content()
+    elif selected == "Histórico":
+        modelo_module = importlib.import_module('paginas.historico')
+        modelo_module.display_content()
+    elif selected == "Home":
+        st.title('🪲 Identificação de Pragas em Folhas de Soja')
+
+        uploaded_file = st.file_uploader("📷 Envie uma imagem de folha de soja", type=["jpg", "jpeg", "png"])
+
+        if uploaded_file is not None:
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Imagem carregada", use_container_width=True)
+
+            display_location(image)
+
+            image_array = preprocess_image(image)
+
+            class_names = [
+                'Mossaic Virus',
+                'Southern Blight',
+                'Sudden Death Syndrome',
+                'Yellow Mosaic',
+                'Bacterial Blight',
+                'Brown Spot',
+                'Crestamento',
+                'Ferrugem',
+                'Powdery Mildew',
+                'Septoria'
+            ]
+
+            predicted_class = class_names[0]  # Placeholder fixo
+            confidence = 0.95
+
+            st.markdown(f"### 🧠 Predição: **{predicted_class}**")
+            st.write(f"Confiabilidade: {confidence * 100:.2f}%")
+
+            doencas = get_doencas()
+            if predicted_class in doencas:
+                st.markdown("## 📖 Detalhes sobre a doença detectada:")
+                exibir_doenca(predicted_class, doencas[predicted_class])
+            else:
+                st.info("Nenhuma informação detalhada disponível para essa doença.")
 
 def get_gps_coordinates(image):
     try:
@@ -259,79 +314,3 @@ def display_location(image=None):
     else:
         if not st.session_state.show_manual_input and st.session_state.retry_count > 2:
             st.warning("🔍 Está tendo problemas? Tente a entrada manual de localização.")
-
-def main_app():
-    st.sidebar.image("images/haber_logo.png", width=200)
-
-    logout()
-
-    with st.sidebar:
-        selected = option_menu(
-            '',
-            ["Home", 'Doenças', 'Modelo', 'Histórico'],
-            icons=['house', 'search', 'info-circle', 'collection'],
-            default_index=0,
-            menu_icon="cast",
-            styles={
-                "container": {"background-color": "#2D2D2D"},
-                "icon": {"color": "white", "font-size": "20px"},
-                "nav-link": {"color": "white", "font-weight": "bold"},
-                "nav-link-selected": {"background-color": "green", "color": "white"}
-            }
-        )
-
-    if selected == "Doenças":
-        doenças_module = importlib.import_module('paginas.doencas')
-        doenças_module.display_content()
-    elif selected == "Modelo":
-        modelo_module = importlib.import_module('paginas.modelo')
-        modelo_module.display_content()
-    elif selected == "Histórico":
-        modelo_module = importlib.import_module('paginas.historico')
-        modelo_module.display_content()
-    elif selected == "Home":
-        st.title('🪲 Identificação de Pragas em Folhas de Soja')
-
-        uploaded_file = st.file_uploader("📷 Envie uma imagem de folha de soja", type=["jpg", "jpeg", "png"])
-
-        if uploaded_file is not None:
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Imagem carregada", use_container_width=True)
-
-            display_location(image)
-
-            image_array = preprocess_image(image)
-
-            class_names = [
-                'Mossaic Virus',
-                'Southern Blight',
-                'Sudden Death Syndrome',
-                'Yellow Mosaic',
-                'Bacterial Blight',
-                'Brown Spot',
-                'Crestamento',
-                'Ferrugem',
-                'Powdery Mildew',
-                'Septoria'
-            ]
-
-            predicted_class = class_names[0]  # Placeholder fixo
-            confidence = 0.95
-
-            st.markdown(f"### 🧠 Predição: **{predicted_class}**")
-            st.write(f"Confiabilidade: {confidence * 100:.2f}%")
-
-            doencas = get_doencas()
-            if predicted_class in doencas:
-                st.markdown("## 📖 Detalhes sobre a doença detectada:")
-                exibir_doenca(predicted_class, doencas[predicted_class])
-            else:
-                st.info("Nenhuma informação detalhada disponível para essa doença.")
-
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = False
-
-if st.session_state["logged_in"]:
-    main_app()
-else:
-    login()
