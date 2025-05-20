@@ -3,13 +3,13 @@ import mysql.connector
 from mysql.connector import Error
 import yaml
 from yaml.loader import SafeLoader
-from .config import DB_CONFIG
+from .config import get_db_config
 import streamlit as st
 
 # Busca usuários do banco de dados e retorna no formato necessário para o authenticator
 def get_users_from_db():
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        conn = mysql.connector.connect(**get_db_config())
         cursor = conn.cursor(dictionary=True)
         
         cursor.execute("SELECT username, name, email, password FROM users")
@@ -40,7 +40,7 @@ def get_users_from_db():
 # Salva novo usuário no banco de dados
 def save_users_to_db(username, name, email, password):
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        conn = mysql.connector.connect(**get_db_config())
         cursor = conn.cursor()
         
         # O authenticator já faz o hash da senha
@@ -60,6 +60,8 @@ def save_users_to_db(username, name, email, password):
 
 # Configura e retorna o authenticator
 def setup_authenticator():    
+    config = get_db_config()
+    conn = mysql.connector.connect(**config)
     credentials = get_users_from_db()
     if not credentials:
         # Logins padrão caso não consiga conectar ao banco

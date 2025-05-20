@@ -14,6 +14,8 @@ import requests
 from utils.auth_config import setup_authenticator
 from utils.location import display_location
 from utils.image_processing import preprocess_image
+from utils.db_operations import save_scan, get_disease_by_name
+from utils.auth import get_user_id
 
 st.set_page_config(
     page_title="Haber",
@@ -23,12 +25,6 @@ st.set_page_config(
 # Inicializa o authenticator
 authenticator = setup_authenticator()
 
-# Centraliza a imagem do logo antes do login
-col1, col2, col3 = st.columns([1,2,1])
-with col2:
-    st.image("images/haber_logo.png", width=300)
-    st.markdown("<h1 style='text-align: center;'>Bem-vindo ao Haber</h1>", unsafe_allow_html=True)
-
 # Tenta fazer login
 name, authentication_status, username = authenticator.login('Login', 'main')
 
@@ -37,6 +33,7 @@ if authentication_status == False:
 elif authentication_status == None:
     st.info('Por favor, insira seu usuário e senha')
 elif authentication_status:
+    st.session_state['username'] = username
     # Usuário está logado
     st.sidebar.image("images/haber_logo.png", width=200)
     
@@ -97,6 +94,31 @@ elif authentication_status:
 
             st.markdown(f"### 🧠 Predição: **{predicted_class}**")
             st.write(f"Confiabilidade: {confidence * 100:.2f}%")
+
+            # Salva a análise no banco de dados
+            user_id = get_user_id()
+            if user_id:
+                disease = get_disease_by_name(predicted_class)
+                if disease:
+                    # Obtém a localização
+                    location, source = get_location(image)
+                    lat, lon = location if location else (None, None)
+                    city_name = get_city_from_coords(lat, lon) if lat and lon else None
+                    
+                    # Salva a análise
+                    if save_scan(
+                        user_id=user_id,
+                        image_path=uploaded_file.name,
+                        disease_id=disease['id'],
+                        confidence=confidence,
+                        latitude=lat,
+                        longitude=lon,
+                        location_source=source,
+                        city_name=city_name
+                    ):
+                        st.success("✅ Análise salva com sucesso!")
+                    else:
+                        st.error("❌ Erro ao salvar a análise.")
 
             doencas = get_doencas()
             if predicted_class in doencas:

@@ -1,7 +1,7 @@
 import streamlit_authenticator as stauth
+from config import get_db_config
 import mysql.connector
 from mysql.connector import Error
-from config import DB_CONFIG
 
 def create_test_user():
     # Dados do usuário
@@ -15,7 +15,8 @@ def create_test_user():
     
     try:
         # Conecta ao banco
-        conn = mysql.connector.connect(**DB_CONFIG)
+        config = get_db_config()
+        conn = mysql.connector.connect(**config)
         cursor = conn.cursor()
         
         # Insere o usuário
