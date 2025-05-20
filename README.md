@@ -1,15 +1,34 @@
-# 🌿 Haber - Detecção de Doenças em Folhas de Soja
+# 🌿 Haber - Sistema de identificação de doenças em folhas de soja
 
-Sistema web desenvolvido em Python/Streamlit para identificação automática de doenças em folhas de soja usando Deep Learning.
+Sistema web desenvolvido em Python/Streamlit para identificação automática de doenças em folhas de soja usando Deep Learning, com foco em usabilidade e precisão para produtores rurais.
 
-## 🎯 Principais Funcionalidades
-- Identificação de 10 doenças comuns em folhas de soja
-- Upload de imagens via interface intuitiva
-- Geolocalização inteligente com múltiplas opções (EXIF, IP, manual)
-- Mapeamento de ocorrências para análise regional
-- Interface responsiva otimizada para dispositivos móveis
+## 🎯 Funcionalidades Principais
 
-## 🔬 Doenças Identificadas
+### 🔐 Sistema de Autenticação
+- Login seguro com usuário e senha
+- Sistema de cookies para sessão persistente
+- Logout disponível na sidebar
+- Usuários padrão configurados (joao/123456, maria/123456)
+
+### 📸 Página Principal (Home)
+- Upload de imagens de folhas de soja (jpg, jpeg, png)
+- Visualização da imagem carregada
+- Sistema de geolocalização inteligente
+- Identificação automática de doenças
+- Exibição de resultados com confiabilidade
+
+### 📍 Sistema de Geolocalização
+- Múltiplas opções de localização:
+  - Extração de coordenadas EXIF da imagem
+  - Seleção manual no mapa interativo
+  - Baseado em IP
+  - Digitação manual da cidade
+- Visualização em mapa com marcador
+- Exibição de coordenadas precisas
+- Identificação automática da cidade/estado
+
+### 🦠 Catálogo de Doenças
+Identificação de 10 doenças comuns em soja:
 - Mossaic Virus
 - Southern Blight
 - Sudden Death Syndrome
@@ -21,28 +40,49 @@ Sistema web desenvolvido em Python/Streamlit para identificação automática de
 - Powdery Mildew
 - Septoria
 
-## 🧠 Tecnologias
-- Deep Learning com InceptionV3
+Para cada doença:
+- Nome científico
+- Descrição detalhada
+- Agrotóxicos recomendados
+- Cuidados preventivos
+
+### 🤖 Página do Modelo
+- Explicação técnica do modelo de IA
+- Detalhes da arquitetura InceptionV3
+- Métricas de desempenho
+- Matriz de confusão
+- Comparação com outros modelos
+
+### 📊 Histórico de Análises
+- Registro de análises anteriores
+- Data e hora
+- Tipo de praga identificada
+- Localização (latitude/longitude)
+- Usuário que realizou a análise
+
+## 🛠️ Tecnologias Utilizadas
+
+### Backend
+- Python 3.10+
 - Streamlit para interface web
+- PIL para processamento de imagens
 - Folium para visualização geográfica
-- Processamento de imagens com PIL
-- Geolocalização multi-fonte
+- InceptionV3 para deep learning
 
-## 📱 Compatibilidade
-- Desktop (Windows, Linux, Mac)
-- Dispositivos móveis (iOS, Android)
-- Navegadores modernos
-
-## 🚀 Diferenciais
+### Frontend
 - Interface dark mode moderna
-- Sistema de login integrado
+- Design responsivo para mobile
 - Feedback visual em tempo real
-- Recomendações personalizadas por região
-- Documentação detalhada de doenças
+- Mensagens de erro e sucesso
+- Menu lateral com navegação
 
-Desenvolvido como parte de projeto de TCC, focando na acessibilidade e precisão para produtores rurais.
+### Segurança
+- Senhas criptografadas
+- Sistema de cookies seguro
+- Autenticação em camadas
+- Proteção contra acessos não autorizados
 
-## 🛠️ Instalação e Uso
+## 📦 Instalação
 
 ### Pré-requisitos
 - Python 3.10 ou superior
@@ -80,18 +120,6 @@ streamlit run app.py
 http://localhost:8501
 ```
 
-## 📝 Como Usar
-1. Faça login com suas credenciais
-2. Faça upload da imagem da folha de soja
-3. Aguarde a análise automática
-4. Verifique o resultado e as recomendações
-
-## 👥 Contribuição
-Contribuições são bem-vindas! Por favor, leia as diretrizes de contribuição antes de submeter pull requests.
-
-## 📄 Licença
-Este projeto está licenciado sob a [Licença MIT](LICENSE).
-
 ## 📁 Estrutura do Projeto
 
 ```
@@ -100,36 +128,34 @@ haber/
 ├── requirements.txt       # Dependências do projeto
 ├── README.md             # Documentação do projeto
 ├── images/               # Imagens estáticas do sistema
-│   └── haber.png        # Logo do projeto
 ├── utils/               # Módulos utilitários
-│   └── doencas.py      # Gerenciamento de informações sobre doenças
-└── paginas/            # Páginas da aplicação
-    ├── doencas.py      # Página com catálogo de doenças
-    ├── modelo.py       # Página com informações técnicas do modelo
-    └── historico.py    # Página de histórico de análises
+│   ├── auth.py         # Autenticação
+│   ├── auth_config.py  # Configuração de autenticação
+│   ├── config.py       # Configurações gerais
+│   ├── doencas.py      # Gerenciamento de doenças
+│   ├── generate_hash.py # Geração de hashes
+│   ├── generate_user.py # Geração de usuários
+│   ├── image_processing.py # Processamento de imagens
+│   └── location.py     # Funções de geolocalização
+├── paginas/            # Páginas da aplicação
+│   ├── doencas.py      # Página de catálogo de doenças
+│   ├── modelo.py       # Página de informações do modelo
+│   └── historico.py    # Página de histórico
+└── database/          # Configurações do banco de dados
 ```
 
-### 📂 Descrição dos Componentes
+## 👥 Como Usar
 
-- `app.py`: Contém a lógica principal da aplicação, incluindo:
-  - Sistema de autenticação
-  - Processamento de imagens
-  - Geolocalização multi-fonte
-  - Interface principal
+1. Faça login com suas credenciais
+2. Na página principal, faça upload da imagem da folha de soja
+3. Aguarde a análise automática
+4. Verifique o resultado e as recomendações
+5. Consulte o histórico de análises anteriores
+6. Explore o catálogo de doenças para mais informações
 
-- `utils/doencas.py`: Gerencia o catálogo de doenças com:
-  - Descrições detalhadas
-  - Recomendações de tratamento
-  - Informações técnicas
+## 📝 Contribuição
+Contribuições são bem-vindas! Por favor, leia as diretrizes de contribuição antes de submeter pull requests.
 
-- `paginas/`:
-  - `doencas.py`: Exibe catálogo completo de doenças e tratamentos
-  - `modelo.py`: Documentação técnica do modelo de IA
-  - `historico.py`: Registro de análises anteriores
-
-### 🔄 Fluxo de Dados
-
-1. Upload da imagem → Processamento → Análise pelo modelo
-2. Extração de metadados → Geolocalização → Contextualização regional
-3. Resultado → Recomendações personalizadas → Registro no histórico
+## 📄 Licença
+Este projeto está licenciado sob a [Licença MIT](LICENSE).
 
