@@ -15,117 +15,8 @@ from utils.auth_config import setup_authenticator
 from utils.location import display_location
 from utils.image_processing import preprocess_image
 from utils.db_operations import save_scan, get_disease_by_name
-from utils.auth import get_user_id
-
-st.set_page_config(
-    page_title="Haber",
-    page_icon="images/haber.png"
-)
-
-# Inicializa o authenticator
-authenticator = setup_authenticator()
-
-# Tenta fazer login
-name, authentication_status, username = authenticator.login('Login', 'main')
-
-if authentication_status == False:
-    st.error('Usuário ou senha incorretos')
-elif authentication_status == None:
-    st.info('Por favor, insira seu usuário e senha')
-elif authentication_status:
-    st.session_state['username'] = username
-    # Usuário está logado
-    st.sidebar.image("images/haber_logo.png", width=200)
-    
-    with st.sidebar:
-        selected = option_menu(
-            '',
-            ["Home", 'Doenças', 'Modelo', 'Histórico'],
-            icons=['house', 'search', 'info-circle', 'collection'],
-            default_index=0,
-            menu_icon="cast",
-            styles={
-                "container": {"background-color": "#2D2D2D"},
-                "icon": {"color": "white", "font-size": "20px"},
-                "nav-link": {"color": "white", "font-weight": "bold"},
-                "nav-link-selected": {"background-color": "green", "color": "white"}
-            }
-        )
-        # Botão de logout na sidebar
-        authenticator.logout('Logout', 'sidebar')
-
-    if selected == "Doenças":
-        doenças_module = importlib.import_module('paginas.doencas')
-        doenças_module.display_content()
-    elif selected == "Modelo":
-        modelo_module = importlib.import_module('paginas.modelo')
-        modelo_module.display_content()
-    elif selected == "Histórico":
-        modelo_module = importlib.import_module('paginas.historico')
-        modelo_module.display_content()
-    elif selected == "Home":
-        st.title('🪲 Identificação de Pragas em Folhas de Soja')
-
-        uploaded_file = st.file_uploader("📷 Envie uma imagem de folha de soja", type=["jpg", "jpeg", "png"])
-
-        if uploaded_file is not None:
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Imagem carregada", use_container_width=True)
-
-            display_location(image)
-
-            image_array = preprocess_image(image)
-
-            class_names = [
-                'Mossaic Virus',
-                'Southern Blight',
-                'Sudden Death Syndrome',
-                'Yellow Mosaic',
-                'Bacterial Blight',
-                'Brown Spot',
-                'Crestamento',
-                'Ferrugem',
-                'Powdery Mildew',
-                'Septoria'
-            ]
-
-            predicted_class = class_names[0]  # Placeholder fixo
-            confidence = 0.95
-
-            st.markdown(f"### 🧠 Predição: **{predicted_class}**")
-            st.write(f"Confiabilidade: {confidence * 100:.2f}%")
-
-            # Salva a análise no banco de dados
-            user_id = get_user_id()
-            if user_id:
-                disease = get_disease_by_name(predicted_class)
-                if disease:
-                    # Obtém a localização
-                    location, source = get_location(image)
-                    lat, lon = location if location else (None, None)
-                    city_name = get_city_from_coords(lat, lon) if lat and lon else None
-                    
-                    # Salva a análise
-                    if save_scan(
-                        user_id=user_id,
-                        image_path=uploaded_file.name,
-                        disease_id=disease['id'],
-                        confidence=confidence,
-                        latitude=lat,
-                        longitude=lon,
-                        location_source=source,
-                        city_name=city_name
-                    ):
-                        st.success("✅ Análise salva com sucesso!")
-                    else:
-                        st.error("❌ Erro ao salvar a análise.")
-
-            doencas = get_doencas()
-            if predicted_class in doencas:
-                st.markdown("## 📖 Detalhes sobre a doença detectada:")
-                exibir_doenca(predicted_class, doencas[predicted_class])
-            else:
-                st.info("Nenhuma informação detalhada disponível para essa doença.")
+from utils.auth import get_user_id, get_user_id_from_db
+from streamlit_folium import st_folium
 
 def get_gps_coordinates(image):
     try:
@@ -203,16 +94,6 @@ def get_location(image=None):
     if 'using_ip_location' not in st.session_state:
         st.session_state.using_ip_location = False
 
-    st.markdown("""
-    ### 📍 Localização Atual
-    Para melhor precisão na identificação de doenças em sua região, precisamos da sua localização.
-    
-    > Isso nos ajuda a:
-    > - Mapear a ocorrência de doenças em diferentes regiões
-    > - Fornecer recomendações mais precisas
-    > - Alertar sobre surtos na sua área
-    """)
-
     # Tentativa 1: Dados EXIF
     if image is not None:
         coordinates = get_gps_coordinates(image)
@@ -221,88 +102,195 @@ def get_location(image=None):
             location_source = "EXIF"
             st.success("✅ Localização detectada automaticamente a partir da imagem!")
             return location, location_source
-        else:
-            st.info("""
-            ℹ️ **Não foi possível detectar a localização automaticamente**
-            
-            Por favor, escolha uma das opções abaixo para informar sua localização:
-            """)
 
-    # Opções de localização
-    location_method = st.radio(
-        "Escolha como deseja fornecer sua localização:",
-        ["Digitar Cidade", "Selecionar no Mapa", "Baseado em IP"],
-        help="Escolha o método mais conveniente para você"
-    )
+    # Tentativa 2: Localização por IP
+    if not location:
+        location, source = get_location_from_ip()
+        if location:
+            location_source = source
+            return location, location_source
 
-    if location_method == "Digitar Cidade":
-        city = st.text_input("Digite sua cidade:", placeholder="Ex: Curitiba, PR")
-        if city:
-            try:
-                with st.spinner("Buscando localização..."):
-                    geolocator = Nominatim(user_agent="haber_app")
-                    location_data = geolocator.geocode(city + ", Brasil")
-                    if location_data:
-                        location = (location_data.latitude, location_data.longitude)
-                        location_source = "Manual (Cidade)"
-                        return location, location_source
-                    else:
-                        st.error("Cidade não encontrada. Tente ser mais específico (ex: 'São Paulo, SP')")
-            except Exception as e:
-                st.error("Erro ao buscar localização. Tente usar o mapa.")
-
-    elif location_method == "Selecionar no Mapa":
-        st.markdown("""
-        👉 **Como usar o mapa:**
-        1. Navegue pelo mapa usando dois dedos para mover e dar zoom
-        2. Toque no local desejado para marcar
-        3. Ajuste a posição do marcador se necessário
-        4. Toque em 'Confirmar Localização'
-        """)
-        
-        # Criando um mapa centralizado no Brasil
-        m = folium.Map(
-            location=[-15.788497, -47.879873],
-            zoom_start=4,
-            scrollWheelZoom=True,
-            dragging=True
-        )
-        
-        # Adicionando um marcador que pode ser arrastado
-        marker = folium.Marker(
-            [-15.788497, -47.879873],
-            popup="Toque e segure para mover",
-            draggable=True
-        )
-        marker.add_to(m)
-        
-        # Adicionando controles de zoom mais visíveis para mobile
-        folium.plugins.Fullscreen().add_to(m)
-        
-        # Exibindo o mapa com altura adequada para mobile
-        folium_static(m, height=400)
-        
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("🔄 Centralizar Mapa", use_container_width=True):
-                m.location = [-15.788497, -47.879873]
-                m.zoom_start = 4
-                st.rerun()
-        with col2:
-            if st.button("✅ Confirmar Localização", use_container_width=True):
-                location = (marker.location[0], marker.location[1])
-                location_source = "Manual (Mapa)"
-                return location, location_source
-
-    elif location_method == "Baseado em IP":
-        with st.spinner("Obtendo localização baseada em IP..."):
-            location, location_source = get_location_from_ip()
-            if location:
-                return location, location_source
-            else:
-                st.error("Não foi possível obter localização por IP. Tente digitar sua cidade.")
-
+    # Se nenhuma localização foi encontrada, retorna None
     return None, None
+
+st.set_page_config(
+    page_title="Haber",
+    page_icon="images/haber.png"
+)
+
+# Inicializa o authenticator
+authenticator = setup_authenticator()
+
+# Tenta fazer login
+name, authentication_status, username = authenticator.login('Login', 'main')
+
+if authentication_status == False:
+    st.error('Usuário ou senha incorretos')
+elif authentication_status == None:
+    st.info('Por favor, insira seu usuário e senha')
+elif authentication_status:
+    st.session_state['username'] = username
+    st.session_state['user_id'] = get_user_id_from_db(username)
+    # Usuário está logado
+    st.sidebar.image("images/haber_logo.png", width=200)
+    
+    with st.sidebar:
+        selected = option_menu(
+            '',
+            ["Home", 'Doenças', 'Modelo', 'Histórico'],
+            icons=['house', 'search', 'info-circle', 'collection'],
+            default_index=0,
+            menu_icon="cast",
+            styles={
+                "container": {"background-color": "#2D2D2D"},
+                "icon": {"color": "white", "font-size": "20px"},
+                "nav-link": {"color": "white", "font-weight": "bold"},
+                "nav-link-selected": {"background-color": "green", "color": "white"}
+            }
+        )
+        # Botão de logout na sidebar
+        authenticator.logout('Logout', 'sidebar')
+
+    if selected == "Doenças":
+        doenças_module = importlib.import_module('paginas.doencas')
+        doenças_module.display_content()
+    elif selected == "Modelo":
+        modelo_module = importlib.import_module('paginas.modelo')
+        modelo_module.display_content()
+    elif selected == "Histórico":
+        modelo_module = importlib.import_module('paginas.historico')
+        modelo_module.display_content()
+    elif selected == "Home":
+        st.title('🪲 Identificação de Pragas em Folhas de Soja')
+
+        uploaded_file = st.file_uploader("📷 Envie uma imagem de folha de soja", type=["jpg", "jpeg", "png"])
+
+        if uploaded_file is not None:
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Imagem carregada", use_container_width=True)
+
+            image_array = preprocess_image(image)
+
+            class_names = [
+                'Mossaic Virus',
+                'Southern Blight',
+                'Sudden Death Syndrome',
+                'Yellow Mosaic',
+                'Bacterial Blight',
+                'Brown Spot',
+                'Crestamento',
+                'Ferrugem',
+                'Powdery Mildew',
+                'Septoria'
+            ]
+
+            predicted_class = class_names[0]  # Placeholder fixo
+            confidence = 0.95
+
+            # Salva os dados no session_state
+            st.session_state['uploaded_file_name'] = uploaded_file.name
+            st.session_state['predicted_class'] = predicted_class
+            st.session_state['confidence'] = confidence
+
+            st.markdown(f"### 🧠 Predição: **{predicted_class}**")
+            st.write(f"Confiabilidade: {confidence * 100:.2f}%")
+
+            doencas = get_doencas()
+            if predicted_class in doencas:
+                st.markdown("## 📖 Detalhes sobre a doença detectada:")
+                exibir_doenca(predicted_class, doencas[predicted_class])
+            else:
+                st.info("Nenhuma informação detalhada disponível para essa doença.")
+
+            # Fluxo de localização
+            if 'location_confirmed' not in st.session_state or not st.session_state['location_confirmed']:
+                st.markdown("### 📍 Confirme sua localização para salvar a análise")
+                location_method = st.radio(
+                    "Como deseja informar sua localização?",
+                    ["Digitar Cidade", "Selecionar no Mapa", "Baseado em IP"],
+                    key="location_method"
+                )
+                if location_method == "Digitar Cidade":
+                    city = st.text_input("Digite sua cidade:", key="city_input")
+                    if st.button("Confirmar localização (cidade)") and city:
+                        geolocator = Nominatim(user_agent="haber_app")
+                        location_data = geolocator.geocode(city + ", Brasil")
+                        if location_data:
+                            st.session_state['latitude'] = location_data.latitude
+                            st.session_state['longitude'] = location_data.longitude
+                            st.session_state['location_source'] = "Manual (Cidade)"
+                            st.session_state['city_name'] = city
+                            st.session_state['location_confirmed'] = True
+                            st.success(f"Localização confirmada: {city}")
+                        else:
+                            st.error("Cidade não encontrada. Tente ser mais específico (ex: 'São Paulo, SP')")
+                elif location_method == "Selecionar no Mapa":
+                    st.markdown("Clique no mapa para marcar sua localização.")
+                    m = folium.Map(location=[-15.788497, -47.879873], zoom_start=4)
+                    map_data = st_folium(m, width=700, height=400)
+                    lat = lon = None
+                    if map_data and map_data['last_clicked']:
+                        lat = map_data['last_clicked']['lat']
+                        lon = map_data['last_clicked']['lng']
+                        st.markdown(f"**Coordenadas selecionadas:** {lat}, {lon}")
+                        st.session_state['map_lat'] = lat
+                        st.session_state['map_lon'] = lon
+                    if st.button("Confirmar localização (mapa)") and 'map_lat' in st.session_state and 'map_lon' in st.session_state:
+                        st.session_state['latitude'] = st.session_state['map_lat']
+                        st.session_state['longitude'] = st.session_state['map_lon']
+                        st.session_state['location_source'] = "Manual (Mapa)"
+                        st.session_state['city_name'] = get_city_from_coords(st.session_state['map_lat'], st.session_state['map_lon'])
+                        st.session_state['location_confirmed'] = True
+                        st.success(f"Localização confirmada: {st.session_state['map_lat']}, {st.session_state['map_lon']}")
+                elif location_method == "Baseado em IP":
+                    if st.button("Confirmar localização (IP)"):
+                        location, source = get_location_from_ip()
+                        if location:
+                            lat, lon = location
+                            st.session_state['latitude'] = lat
+                            st.session_state['longitude'] = lon
+                            st.session_state['location_source'] = source
+                            st.session_state['city_name'] = get_city_from_coords(lat, lon)
+                            st.session_state['location_confirmed'] = True
+                            st.success(f"Localização confirmada pelo IP: {lat}, {lon}")
+            else:
+                # Exibe resumo da localização e botão de salvar análise
+                st.markdown(f"**Localização confirmada:** {st.session_state.get('city_name', '')}")
+                st.markdown(f"**Latitude:** {st.session_state.get('latitude', '')}")
+                st.markdown(f"**Longitude:** {st.session_state.get('longitude', '')}")
+                st.markdown(f"**Fonte:** {st.session_state.get('location_source', '')}")
+                if st.button("💾 Salvar análise"):
+                    user_id = get_user_id()
+                    if user_id:
+                        disease = get_disease_by_name(st.session_state['predicted_class'])
+                        if disease:
+                            if st.session_state.get('latitude') is not None and st.session_state.get('longitude') is not None:
+                                lat = st.session_state['latitude']
+                                lon = st.session_state['longitude']
+                                source = st.session_state.get('location_source')
+                                city_name = st.session_state.get('city_name')
+                            else:
+                                lat = lon = source = city_name = None
+
+                            if save_scan(
+                                user_id=user_id,
+                                image_path=st.session_state['uploaded_file_name'],
+                                disease_id=disease['id'],
+                                confidence=st.session_state['confidence'],
+                                latitude=lat,
+                                longitude=lon,
+                                location_source=source,
+                                city_name=city_name
+                            ):
+                                st.success("✅ Análise salva com sucesso!")
+                                # Limpa o estado
+                                for key in ['predicted_class', 'uploaded_file_name', 'confidence', 'latitude', 'longitude', 'location_source', 'city_name', 'location_confirmed', 'map_lat', 'map_lon']:
+                                    if key in st.session_state:
+                                        del st.session_state[key]
+                            else:
+                                st.error("❌ Erro ao salvar a análise.")
+                        else:
+                            st.error("Usuário não autenticado.")
 
 def display_location(image=None):
     """Função para exibir a localização obtida"""

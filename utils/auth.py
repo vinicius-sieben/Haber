@@ -79,6 +79,19 @@ def migrate_existing_users():
     for username, password in existing_users.items():
         create_user(username, password)
 
+def get_user_id_from_db(username):
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+        user = cursor.fetchone()
+        return user['id'] if user else None
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
 def get_user_id():
-    """Retorna o username do usuário autenticado na sessão atual."""
-    return st.session_state.get('username', None) 
+    return st.session_state.get('user_id', None) 
