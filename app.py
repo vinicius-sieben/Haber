@@ -6,8 +6,7 @@ import importlib
 from streamlit_option_menu import option_menu
 from streamlit_geolocation import streamlit_geolocation
 import folium
-from folium import plugins
-from streamlit_folium import folium_static
+from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
 import requests
@@ -16,7 +15,6 @@ from utils.location import display_location
 from utils.image_processing import preprocess_image
 from utils.db_operations import save_scan, get_disease_by_name
 from utils.auth import get_user_id, get_user_id_from_db
-from streamlit_folium import st_folium
 
 def get_gps_coordinates(image):
     try:
@@ -49,8 +47,8 @@ def convert_to_decimal(dms, ref):
         decimal = -decimal
     return decimal
 
-def get_city_from_coords(lat, lon):
-    """Função para obter o nome da cidade a partir das coordenadas"""
+#Função para obter o nome da cidade a partir das coordenadas
+def get_city_from_coords(lat, lon):   
     try:
         geolocator = Nominatim(user_agent="haber_app")
         location = geolocator.reverse((lat, lon), language='pt')
@@ -65,8 +63,8 @@ def get_city_from_coords(lat, lon):
         return None
     return None
 
+# Função para obter localização baseada no IP
 def get_location_from_ip():
-    """Função para obter localização baseada no IP"""
     try:
         response = requests.get('https://ipapi.co/json/')
         if response.status_code == 200:
@@ -222,26 +220,32 @@ elif authentication_status:
                             st.session_state['city_name'] = city
                             st.session_state['location_confirmed'] = True
                             st.success(f"Localização confirmada: {city}")
+                            st.rerun()
                         else:
                             st.error("Cidade não encontrada. Tente ser mais específico (ex: 'São Paulo, SP')")
                 elif location_method == "Selecionar no Mapa":
                     st.markdown("Clique no mapa para marcar sua localização.")
-                    m = folium.Map(location=[-15.788497, -47.879873], zoom_start=4)
+                    map_center = [-15.788497, -47.879873]
+                    lat = st.session_state.get('map_lat', map_center[0])
+                    lon = st.session_state.get('map_lon', map_center[1])
+                    m = folium.Map(location=[lat, lon], zoom_start=4)
+                    folium.Marker([lat, lon], tooltip="Localização selecionada").add_to(m)
                     map_data = st_folium(m, width=700, height=400)
-                    lat = lon = None
                     if map_data and map_data['last_clicked']:
                         lat = map_data['last_clicked']['lat']
                         lon = map_data['last_clicked']['lng']
                         st.markdown(f"**Coordenadas selecionadas:** {lat}, {lon}")
                         st.session_state['map_lat'] = lat
                         st.session_state['map_lon'] = lon
-                    if st.button("Confirmar localização (mapa)") and 'map_lat' in st.session_state and 'map_lon' in st.session_state:
+                    button_disabled = not ('map_lat' in st.session_state and 'map_lon' in st.session_state)
+                    if st.button("Confirmar localização (mapa)", disabled=button_disabled):
                         st.session_state['latitude'] = st.session_state['map_lat']
                         st.session_state['longitude'] = st.session_state['map_lon']
                         st.session_state['location_source'] = "Manual (Mapa)"
                         st.session_state['city_name'] = get_city_from_coords(st.session_state['map_lat'], st.session_state['map_lon'])
                         st.session_state['location_confirmed'] = True
                         st.success(f"Localização confirmada: {st.session_state['map_lat']}, {st.session_state['map_lon']}")
+                        st.rerun()
                 elif location_method == "Baseado em IP":
                     if st.button("Confirmar localização (IP)"):
                         location, source = get_location_from_ip()
@@ -253,44 +257,46 @@ elif authentication_status:
                             st.session_state['city_name'] = get_city_from_coords(lat, lon)
                             st.session_state['location_confirmed'] = True
                             st.success(f"Localização confirmada pelo IP: {lat}, {lon}")
+                            st.rerun()
             else:
                 # Exibe resumo da localização e botão de salvar análise
                 st.markdown(f"**Localização confirmada:** {st.session_state.get('city_name', '')}")
                 st.markdown(f"**Latitude:** {st.session_state.get('latitude', '')}")
                 st.markdown(f"**Longitude:** {st.session_state.get('longitude', '')}")
                 st.markdown(f"**Fonte:** {st.session_state.get('location_source', '')}")
-                if st.button("💾 Salvar análise"):
-                    user_id = get_user_id()
-                    if user_id:
-                        disease = get_disease_by_name(st.session_state['predicted_class'])
-                        if disease:
-                            if st.session_state.get('latitude') is not None and st.session_state.get('longitude') is not None:
-                                lat = st.session_state['latitude']
-                                lon = st.session_state['longitude']
-                                source = st.session_state.get('location_source')
-                                city_name = st.session_state.get('city_name')
-                            else:
-                                lat = lon = source = city_name = None
+                col1, col2 = st.columns([3, 1])
+                with col2:
+                    if st.button("💾 Salvar análise"):
+                        user_id = get_user_id()
+                        if user_id:
+                            disease = get_disease_by_name(st.session_state['predicted_class'])
+                            if disease:
+                                if st.session_state.get('latitude') is not None and st.session_state.get('longitude') is not None:
+                                    lat = st.session_state['latitude']
+                                    lon = st.session_state['longitude']
+                                    source = st.session_state.get('location_source')
+                                    city_name = st.session_state.get('city_name')
+                                else:
+                                    lat = lon = source = city_name = None
 
-                            if save_scan(
-                                user_id=user_id,
-                                image_path=st.session_state['uploaded_file_name'],
-                                disease_id=disease['id'],
-                                confidence=st.session_state['confidence'],
-                                latitude=lat,
-                                longitude=lon,
-                                location_source=source,
-                                city_name=city_name
-                            ):
-                                st.success("✅ Análise salva com sucesso!")
-                                # Limpa o estado
-                                for key in ['predicted_class', 'uploaded_file_name', 'confidence', 'latitude', 'longitude', 'location_source', 'city_name', 'location_confirmed', 'map_lat', 'map_lon']:
-                                    if key in st.session_state:
-                                        del st.session_state[key]
+                                if save_scan(
+                                    user_id=user_id,
+                                    image_path=st.session_state['uploaded_file_name'],
+                                    disease_id=disease['id'],
+                                    confidence=st.session_state['confidence'],
+                                    latitude=lat,
+                                    longitude=lon,
+                                    location_source=source,
+                                    city_name=city_name
+                                ):
+                                    st.success("✅ Análise salva com sucesso!")
+                                    for key in ['predicted_class', 'uploaded_file_name', 'confidence', 'latitude', 'longitude', 'location_source', 'city_name', 'location_confirmed', 'map_lat', 'map_lon']:
+                                        if key in st.session_state:
+                                            del st.session_state[key]
+                                else:
+                                    st.error("❌ Erro ao salvar a análise.")
                             else:
-                                st.error("❌ Erro ao salvar a análise.")
-                        else:
-                            st.error("Usuário não autenticado.")
+                                st.error("Usuário não autenticado.")
 
 def display_location(image=None):
     """Função para exibir a localização obtida"""

@@ -40,16 +40,15 @@ def display_content():
     stats = get_scan_statistics()
     
     if stats:
+        # Linha única para o total de análises
+        st.metric("Total de Análises", stats['total_scans'])
+        # Gráficos lado a lado abaixo
         col1, col2 = st.columns(2)
-        
         with col1:
-            st.metric("Total de Análises", stats['total_scans'])
-            
             if stats['disease_counts']:
                 st.write("Análises por Doença:")
                 disease_df = pd.DataFrame(stats['disease_counts'])
                 st.bar_chart(disease_df.set_index('name')['count'])
-        
         with col2:
             if stats['region_counts']:
                 st.write("Análises por Região:")

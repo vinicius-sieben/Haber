@@ -8,8 +8,8 @@ Pillow
 numpy
 PyYAML
 geopy
-folium
-streamlit-folium
 requests
 streamlit-option-menu
 streamlit-geolocation
+folium
+streamlit-folium
