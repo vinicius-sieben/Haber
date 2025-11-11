@@ -2,11 +2,11 @@ from passlib.hash import pbkdf2_sha256
 import mysql.connector
 from mysql.connector import Error
 import streamlit as st
-from .config import DB_CONFIG
+from .config import get_db_config
 
 def get_db_connection():
     try:
-        connection = mysql.connector.connect(**DB_CONFIG)
+        connection = mysql.connector.connect(**get_db_config())
         return connection
     except Error as e:
         st.error(f"Erro ao conectar ao banco de dados: {e}")
@@ -77,4 +77,21 @@ def migrate_existing_users():
     }
     
     for username, password in existing_users.items():
-        create_user(username, password) 
+        create_user(username, password)
+
+def get_user_id_from_db(username):
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+        user = cursor.fetchone()
+        return user['id'] if user else None
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+def get_user_id():
+    return st.session_state.get('user_id', None) 

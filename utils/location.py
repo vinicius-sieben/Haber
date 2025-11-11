@@ -2,9 +2,6 @@ import streamlit as st
 from PIL import ExifTags
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
-import folium
-from folium import plugins
-from streamlit_folium import folium_static
 import requests
 
 def get_gps_coordinates(image):
